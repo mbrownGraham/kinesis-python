@@ -186,7 +186,7 @@ class KinesisConsumer(object):
         self.shards = {}
         self.run = False
 
-    def get_aws_session(role_arn=None, session_name=None):
+    def get_aws_session(self, role_arn=None, session_name=None):
         """
         If role_arn is given assumes a role and returns boto3 session
         otherwise return a regular session with the current IAM user/role
