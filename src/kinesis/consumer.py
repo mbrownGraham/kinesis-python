@@ -40,6 +40,10 @@ class ShardReader(SubprocessLoop):
         self.client = self.boto3_session.client('kinesis')
         self.retries = 0
 
+    def get_freshest_session(self, boto3_session):
+        log.info("Shard reader getting the latest session")
+        self.client = boto3_session.client('kinesis')
+
     def loop(self):
         """Each loop iteration - returns a sleep time or False to stop the loop"""
         # by default we will sleep for our sleep_time each loop
@@ -174,6 +178,7 @@ class KinesisConsumer(object):
                     setup_again = True
                 else:
                     log.debug("Shard reader %s alive & well", shard_data['ShardId'])
+                    self.shards[shard_data['ShardId']].get_freshest_session(self.boto3_session)
 
         if setup_again:
             self.setup_shards()
