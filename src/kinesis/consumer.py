@@ -84,13 +84,16 @@ class KinesisConsumer(object):
     """
     LOCK_DURATION = 30
 
-    def __init__(self, stream_name, boto3_session=None, state=None, reader_sleep_time=None):
+    def __init__(self, stream_name, boto3_session_name=None, role_arn=None, state=None, reader_sleep_time=None, session_refresh_time=30):
         self.stream_name = stream_name
         self.error_queue = multiprocessing.Queue()
         self.record_queue = multiprocessing.Queue()
 
-        self.boto3_session = boto3_session or boto3.Session()
+        self.boto3_session_name = boto3_session_name
+        self.role_arn = role_arn
+        self.boto3_session = self.get_aws_session(role_arn, boto3_session_name)
         self.kinesis_client = self.boto3_session.client('kinesis')
+        self.session_refresh_time = session_refresh_time
 
         self.state = state
 
@@ -183,11 +186,35 @@ class KinesisConsumer(object):
         self.shards = {}
         self.run = False
 
+    def get_aws_session(role_arn=None, session_name=None):
+        """
+        If role_arn is given assumes a role and returns boto3 session
+        otherwise return a regular session with the current IAM user/role
+        """
+        if role_arn:
+            client = boto3.client('sts')
+            response = client.assume_role(RoleArn=role_arn, RoleSessionName=session_name)
+            session = boto3.Session(
+                aws_access_key_id=response['Credentials']['AccessKeyId'],
+                aws_secret_access_key=response['Credentials']['SecretAccessKey'],
+                aws_session_token=response['Credentials']['SessionToken'])
+            return session
+        else:
+            return boto3.Session()
+
     def __iter__(self):
         try:
             # use lock duration - 1 here since we want to renew our lock before it expires
             lock_duration_check = self.LOCK_DURATION - 1
+            last_session_update_start = time.time()
             while self.run:
+                last_session_update_elapsed = time.time() - last_session_update_start
+                log.info("Boto3 session time: %s", last_session_update_elapsed)
+                if last_session_update_elapsed > self.session_refresh_time:
+                    log.debug("Getting new boto3 session")
+                    self.boto3_session = self.get_aws_session(self.role_arn, self.boto3_session_name)
+                    last_session_update_start = time.time()
+
                 last_setup_check = time.time()
                 self.setup_shards()
 
