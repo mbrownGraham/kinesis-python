@@ -210,7 +210,7 @@ class KinesisConsumer(object):
             while self.run:
                 last_session_update_elapsed = time.time() - last_session_update_start
                 log.info("Boto3 session time: %s", last_session_update_elapsed)
-                if last_session_update_elapsed > self.session_refresh_time:
+                if last_session_update_elapsed >= self.session_refresh_time and self.role_arn:
                     log.debug("Getting new boto3 session")
                     self.boto3_session = self.get_aws_session(self.role_arn, self.boto3_session_name)
                     last_session_update_start = time.time()
