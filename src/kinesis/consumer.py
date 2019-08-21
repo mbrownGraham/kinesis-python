@@ -213,6 +213,7 @@ class KinesisConsumer(object):
                 if last_session_update_elapsed >= self.session_refresh_time and self.role_arn:
                     log.debug("Getting new boto3 session")
                     self.boto3_session = self.get_aws_session(self.role_arn, self.boto3_session_name)
+                    self.kinesis_client = self.boto3_session.client('kinesis')
                     last_session_update_start = time.time()
 
                 last_setup_check = time.time()
